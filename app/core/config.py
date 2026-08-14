@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     
     # API Key de Gemini
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     model_config = ConfigDict(
         env_file=".env",
