@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HablaINEA AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 25px rgba(59, 130, 246, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+    .recording { animation: pulse-ring 1.5s infinite; background-color: #ef4444 !important; }
+    .speaking { animation: pulse-ring 1.5s infinite; background-color: #10b981 !important; }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-between p-6 select-none">
+
+  <!-- Encabezado simple -->
+  <header class="text-center mt-4">
+    <h1 class="text-3xl font-bold tracking-wide text-blue-400">HablaINEA</h1>
+  </header>
+
+  <!-- Botón Principal Interactivo -->
+  <main class="flex flex-col items-center justify-center my-auto">
+    <button id="micBtn" onclick="toggleListening()" 
+      class="w-48 h-48 rounded-full bg-blue-600 hover:bg-blue-500 transition-all duration-300 flex items-center justify-center shadow-2xl cursor-pointer">
+      <svg id="micIcon" class="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+          d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 016 0v6a3 3 0 01-3 3z" />
+      </svg>
+    </button>
+    <p id="statusText" class="mt-8 text-xl font-medium text-slate-300 text-center">
+      Toca el micrófono para hablar
+    </p>
+  </main>
+
+  <!-- Pie de página informativo mínimo -->
+  <footer class="mb-4 text-slate-500 text-sm">
+    Asistente Educativo de Voz
+  </footer>
+
+  <script>
+    const micBtn = document.getElementById('micBtn');
+    const statusText = document.getElementById('statusText');
+    
+    let isListening = false;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      statusText.innerText = "Tu navegador no soporta voz. Prueba en Chrome o Edge.";
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-MX';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    function toggleListening() {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+      }
+
+      if (isListening) {
+        recognition.stop();
+      } else {
+        recognition.start();
+      }
+    }
+
+    recognition.onstart = () => {
+      isListening = true;
+      micBtn.classList.add('recording');
+      statusText.innerText = "Escuchando... Te escucho con atención";
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      micBtn.classList.remove('recording');
+    };
+
+    recognition.onresult = async (event) => {
+      const userText = event.results[0][0].transcript;
+      statusText.innerText = "Pensando respuesta...";
+      
+      try {
+        const response = await fetch('/api/v1/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userText })
+        });
+
+        const data = await response.json();
+        speakResponse(data.response);
+      } catch (error) {
+        statusText.innerText = "Tuvimos un problema. Intenta de nuevo.";
+        speakResponse("Disculpa, no pude escucharte bien. ¿Me lo repites?");
+      }
+    };
+
+    function speakResponse(text) {
+      // Limpiar formato especial o markdown para que la voz lo lea fluido
+      const cleanText = text.replace(/[*#$]/g, '');
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.lang = 'es-MX';
+      utterance.rate = 0.9; // Hablar un poco más despacio para adultos mayores
+
+      utterance.onstart = () => {
+        micBtn.classList.add('speaking');
+        statusText.innerText = "HablaINEA respondiendo...";
+      };
+
+      utterance.onend = () => {
+        micBtn.classList.remove('speaking');
+        statusText.innerText = "Toca el micrófono para responder";
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+  </script>
+</body>
+</html>
