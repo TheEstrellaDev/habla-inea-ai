@@ -2,123 +2,903 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HablaINEA AI</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="PrimarIA INEA AI — Asistente de voz educativo para adultos mayores del INEA. Aprende con tu voz sin necesidad de leer ni escribir." />
+  <meta name="theme-color" content="#0f172a" />
+  <title>PrimarIA INEA AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <style>
-    @keyframes pulse-ring {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-      70% { transform: scale(1.05); box-shadow: 0 0 0 25px rgba(59, 130, 246, 0); }
-      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    /* ─── Reset & Base ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f172a;
+      --surface:   #1e293b;
+      --surface2:  #273549;
+      --border:    #334155;
+      --text:      #f1f5f9;
+      --muted:     #94a3b8;
+      --accent:    #38bdf8;
+      --accent2:   #818cf8;
+      --green:     #4ade80;
+      --amber:     #fbbf24;
+      --red:       #f87171;
+      --radius:    20px;
+      --radius-lg: 32px;
     }
-    .recording { animation: pulse-ring 1.5s infinite; background-color: #ef4444 !important; }
-    .speaking { animation: pulse-ring 1.5s infinite; background-color: #10b981 !important; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Nunito', 'Segoe UI', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ─── Noise texture overlay ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Screens ─── */
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+      padding: 24px 16px 32px;
+      z-index: 1;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    .screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(20px);
+    }
+
+    /* ─── Header ─── */
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .header .logo {
+      font-size: 2.8rem;
+      margin-bottom: 4px;
+    }
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .header p {
+      font-size: 1.05rem;
+      color: var(--muted);
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    /* ─── Book Selection Screen ─── */
+    .book-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .book-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .book-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 60%, rgba(56,189,248,0.06));
+      border-radius: inherit;
+    }
+    .book-card:active {
+      transform: scale(0.97);
+    }
+    .book-card.selected {
+      border-color: var(--accent);
+      background: rgba(56,189,248,0.08);
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.2);
+    }
+    .book-card:hover {
+      border-color: var(--accent);
+      background: var(--surface2);
+    }
+
+    .book-emoji {
+      font-size: 2.8rem;
+      min-width: 52px;
+      text-align: center;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+    }
+    .book-info { flex: 1; }
+    .book-label {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .book-desc {
+      font-size: 0.9rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin-top: 3px;
+    }
+    .book-check {
+      font-size: 1.6rem;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .book-card.selected .book-check { opacity: 1; }
+
+    .btn-start {
+      margin-top: 24px;
+      width: 100%;
+      max-width: 480px;
+      padding: 20px;
+      border: none;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      color: #0f172a;
+      font-family: 'Nunito', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 8px 24px rgba(56,189,248,0.35);
+      letter-spacing: 0.5px;
+    }
+    .btn-start:active { transform: scale(0.97); }
+    .btn-start:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* All books option */
+    .all-books-card {
+      background: transparent;
+      border: 2px dashed var(--border);
+    }
+    .all-books-card:hover, .all-books-card.selected {
+      border-style: solid;
+      border-color: var(--accent2);
+      background: rgba(129,140,248,0.07);
+      box-shadow: 0 0 0 3px rgba(129,140,248,0.15);
+    }
+    .all-books-card.selected .book-check { color: var(--accent2); }
+
+    /* Loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: var(--radius);
+      height: 90px;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ─── Chat Screen ─── */
+    #chatScreen {
+      justify-content: space-between;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 20px;
+    }
+    .btn-back {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: 'Nunito', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-back:active { transform: scale(0.95); }
+
+    .selected-book-badge {
+      flex: 1;
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .selected-book-badge span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ─── Conversation log ─── */
+    .conversation-log {
+      width: 100%;
+      max-width: 480px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-bottom: 12px;
+    }
+    .log-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .log-empty p {
+      font-size: 1.05rem;
+      color: var(--muted);
+      font-weight: 600;
+      line-height: 1.5;
+    }
+
+    .msg {
+      padding: 14px 18px;
+      border-radius: 18px;
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1.5;
+      max-width: 90%;
+      animation: fadeSlide 0.3s ease;
+    }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .msg-user {
+      background: rgba(56,189,248,0.12);
+      border: 1.5px solid rgba(56,189,248,0.25);
+      color: var(--accent);
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-ai {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .msg-thinking {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--muted);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+      font-style: italic;
+    }
+
+    /* ─── Voice Button Area ─── */
+    .voice-area {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 0 8px;
+    }
+
+    /* Sound wave visualizer */
+    .wave-container {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      height: 40px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .wave-container.active { opacity: 1; }
+    .wave-bar {
+      width: 5px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 3px;
+      animation: wave 1s ease-in-out infinite;
+    }
+    .wave-bar:nth-child(1) { animation-delay: 0s; }
+    .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+    .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+    .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+    .wave-bar:nth-child(5) { animation-delay: 0.15s; }
+    .wave-bar:nth-child(6) { animation-delay: 0.05s; }
+    .wave-bar:nth-child(7) { animation-delay: 0.25s; }
+    @keyframes wave {
+      0%, 100% { height: 8px; }
+      50% { height: 36px; }
+    }
+
+    /* Main voice button */
+    #voiceBtn {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.18s ease;
+    }
+    #voiceBtn:active { transform: scale(0.94); }
+
+    .btn-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background 0.3s ease;
+      background: linear-gradient(145deg, #1a56db, #3b82f6);
+      box-shadow: 0 0 0 0 rgba(59,130,246,0.5);
+    }
+    .btn-icon { font-size: 3.2rem; line-height: 1; }
+    .btn-label {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: #fff;
+      font-family: 'Nunito', sans-serif;
+      letter-spacing: 0.5px;
+    }
+
+    /* Button states */
+    #voiceBtn.listening .btn-inner {
+      background: linear-gradient(145deg, #dc2626, #ef4444);
+      box-shadow: 0 0 0 16px rgba(239,68,68,0.15), 0 0 0 32px rgba(239,68,68,0.05);
+      animation: pulse-red 1.4s ease-in-out infinite;
+    }
+    #voiceBtn.thinking .btn-inner {
+      background: linear-gradient(145deg, #b45309, #d97706);
+      box-shadow: 0 0 0 12px rgba(217,119,6,0.15);
+      animation: pulse-amber 1.8s ease-in-out infinite;
+    }
+    #voiceBtn.speaking .btn-inner {
+      background: linear-gradient(145deg, #15803d, #22c55e);
+      box-shadow: 0 0 0 12px rgba(34,197,94,0.15), 0 0 0 24px rgba(34,197,94,0.07);
+      animation: pulse-green 1s ease-in-out infinite;
+    }
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 0 16px rgba(239,68,68,0.15), 0 0 0 32px rgba(239,68,68,0.05); }
+      50% { box-shadow: 0 0 0 24px rgba(239,68,68,0.2), 0 0 0 46px rgba(239,68,68,0.08); }
+    }
+    @keyframes pulse-amber {
+      0%, 100% { box-shadow: 0 0 0 12px rgba(217,119,6,0.15); }
+      50% { box-shadow: 0 0 0 22px rgba(217,119,6,0.2); }
+    }
+    @keyframes pulse-green {
+      0%, 100% { box-shadow: 0 0 0 12px rgba(34,197,94,0.15), 0 0 0 24px rgba(34,197,94,0.07); }
+      50% { box-shadow: 0 0 0 20px rgba(34,197,94,0.2), 0 0 0 36px rgba(34,197,94,0.1); }
+    }
+
+    /* Status label */
+    .status-label {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-align: center;
+      min-height: 1.5em;
+      transition: color 0.3s;
+    }
+    .status-label.listening { color: var(--red); }
+    .status-label.thinking  { color: var(--amber); }
+    .status-label.speaking  { color: var(--green); }
+
+    /* ─── Toast ─── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--red);
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 999;
+      max-width: 90%;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ─── Responsive (landscape / tablet) ─── */
+    @media (min-width: 520px) {
+      .header h1 { font-size: 2.2rem; }
+      #voiceBtn { width: 180px; height: 180px; }
+      .btn-icon { font-size: 3.8rem; }
+    }
   </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-between p-6 select-none">
+<body>
 
-  <!-- Encabezado simple -->
-  <header class="text-center mt-4">
-    <h1 class="text-3xl font-bold tracking-wide text-blue-400">HablaINEA</h1>
-  </header>
+<!-- ═══════════════════════════════════════════
+     SCREEN 1: SELECCIÓN DE LIBRO
+════════════════════════════════════════════ -->
+<section id="bookScreen" class="screen">
+  <div class="header">
+    <div class="logo">🎓</div>
+    <h1>PrimarIA INEA AI</h1>
+    <p>¿Con cuál libro quieres estudiar hoy?</p>
+  </div>
 
-  <!-- Botón Principal Interactivo -->
-  <main class="flex flex-col items-center justify-center my-auto">
-    <button id="micBtn" onclick="toggleListening()" 
-      class="w-48 h-48 rounded-full bg-blue-600 hover:bg-blue-500 transition-all duration-300 flex items-center justify-center shadow-2xl cursor-pointer">
-      <svg id="micIcon" class="w-24 h-24 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-          d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 016 0v6a3 3 0 01-3 3z" />
-      </svg>
+  <div class="book-grid" id="bookGrid">
+    <!-- Cargando libros... -->
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+  </div>
+
+  <button class="btn-start" id="btnStart" disabled onclick="startChat()">
+    ✅ Empezar a estudiar
+  </button>
+</section>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 2: CHAT DE VOZ
+════════════════════════════════════════════ -->
+<section id="chatScreen" class="screen hidden">
+  <div class="topbar">
+    <button class="btn-back" onclick="goBack()" aria-label="Volver a seleccionar libro">
+      ← Libros
     </button>
-    <p id="statusText" class="mt-8 text-xl font-medium text-slate-300 text-center">
-      Toca el micrófono para hablar
-    </p>
-  </main>
+    <div class="selected-book-badge" id="selectedBadge">
+      <span id="selectedBadgeText">📚 Todos los libros</span>
+    </div>
+  </div>
 
-  <!-- Pie de página informativo mínimo -->
-  <footer class="mb-4 text-slate-500 text-sm">
-    Asistente Educativo de Voz
-  </footer>
+  <!-- Historial de conversación -->
+  <div class="conversation-log" id="conversationLog">
+    <div class="log-empty">
+      <p>Presiona el botón y<br>habla tu pregunta 🎙️</p>
+    </div>
+  </div>
 
-  <script>
-    const micBtn = document.getElementById('micBtn');
-    const statusText = document.getElementById('statusText');
-    
-    let isListening = false;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      statusText.innerText = "Tu navegador no soporta voz. Prueba en Chrome o Edge.";
+  <!-- Área de voz -->
+  <div class="voice-area">
+    <div class="wave-container" id="waveContainer">
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+    </div>
+
+    <button id="voiceBtn" onclick="toggleVoice()" aria-label="Botón de voz">
+      <div class="btn-inner">
+        <span class="btn-icon" id="btnIcon">🎙️</span>
+        <span class="btn-label" id="btnLabel">Hablar</span>
+      </div>
+    </button>
+
+    <div class="status-label" id="statusLabel">Toca el botón para hablar</div>
+  </div>
+</section>
+
+<!-- Toast de error -->
+<div class="toast" id="toast" role="alert"></div>
+
+<script>
+  // ══════════════════════════════════════
+  //  Estado global
+  // ══════════════════════════════════════
+  let selectedBook = null;   // filename o null = todos
+  let selectedBookLabel = "Todos los libros";
+  let selectedBookEmoji = "📚";
+
+  let recognition = null;
+  let synth = window.speechSynthesis;
+  let appState = "idle"; // idle | listening | thinking | speaking
+  let voices = [];
+
+  // ══════════════════════════════════════
+  //  Al cargar la página
+  // ══════════════════════════════════════
+  document.addEventListener("DOMContentLoaded", () => {
+    loadBooks();
+    preloadVoices();
+  });
+
+  // ══════════════════════════════════════
+  //  Cargar libros desde /api/v1/books
+  // ══════════════════════════════════════
+  async function loadBooks() {
+    const grid = document.getElementById("bookGrid");
+    try {
+      const res = await fetch("/api/v1/books");
+      const data = await res.json();
+      grid.innerHTML = "";
+
+      // Tarjeta "Todos los libros"
+      grid.appendChild(buildBookCard({
+        filename: null,
+        label: "Todos los libros",
+        emoji: "📚",
+        description: "Busca en todos los libros del INEA",
+        isAll: true
+      }));
+
+      // Una tarjeta por libro
+      for (const book of data.books) {
+        grid.appendChild(buildBookCard(book));
+      }
+
+      // Si no hay libros
+      if (data.books.length === 0) {
+        grid.innerHTML = `<p style="color:var(--muted);text-align:center;padding:20px;font-size:1rem;font-weight:600;">
+          No se encontraron libros en la carpeta <strong>data/</strong>.<br>Por favor agrega los PDFs y reinicia el servidor.
+        </p>`;
+      }
+    } catch (err) {
+      grid.innerHTML = `<p style="color:var(--red);text-align:center;padding:20px;font-size:1rem;font-weight:600;">
+        No se pudo conectar al servidor. Asegúrate de que el servidor esté corriendo.
+      </p>`;
+    }
+  }
+
+  function buildBookCard(book) {
+    const card = document.createElement("div");
+    const cls = book.isAll ? "book-card all-books-card" : "book-card";
+    card.className = cls;
+    card.id = `card-${book.filename || "all"}`;
+    card.setAttribute("role", "button");
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("aria-label", `Seleccionar: ${book.label}`);
+    card.innerHTML = `
+      <div class="book-emoji">${book.emoji}</div>
+      <div class="book-info">
+        <div class="book-label">${book.label}</div>
+        <div class="book-desc">${book.description}</div>
+      </div>
+      <div class="book-check">✓</div>
+    `;
+    card.addEventListener("click", () => selectBook(book));
+    card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") selectBook(book); });
+    return card;
+  }
+
+  async function selectBook(book) {
+    // Quitar selección previa
+    document.querySelectorAll(".book-card").forEach(c => c.classList.remove("selected"));
+    // Seleccionar nueva
+    const card = document.getElementById(`card-${book.filename || "all"}`);
+    if (card) card.classList.add("selected");
+
+    selectedBook = book.filename || null;
+    selectedBookLabel = book.label;
+    selectedBookEmoji = book.emoji;
+
+    if (selectedBook) {
+      try {
+        await fetch("/api/v1/preload-book", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selected_book: selectedBook })
+        });
+      } catch (e) {
+        console.warn("No se pudo precargar el libro seleccionado:", e);
+      }
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'es-MX';
+    document.getElementById("btnStart").disabled = false;
+  }
+
+  // ══════════════════════════════════════
+  //  Navegación entre pantallas
+  // ══════════════════════════════════════
+  function startChat() {
+    if (selectedBook === null && selectedBookLabel === "Todos los libros") {
+      // validación ya pasó
+    } else if (selectedBook === undefined) {
+      showToast("Por favor, elige un libro primero.");
+      return;
+    }
+
+    // Actualizar badge
+    document.getElementById("selectedBadgeText").textContent =
+      `${selectedBookEmoji} ${selectedBookLabel}`;
+
+    // Limpiar conversación
+    document.getElementById("conversationLog").innerHTML = `
+      <div class="log-empty">
+        <p>Presiona el botón y<br>habla tu pregunta 🎙️</p>
+      </div>
+    `;
+    setIdle();
+
+    // Cambiar pantalla
+    document.getElementById("bookScreen").classList.add("hidden");
+    document.getElementById("chatScreen").classList.remove("hidden");
+  }
+
+  function goBack() {
+    // Detener todo
+    if (recognition) { try { recognition.stop(); } catch(e){} }
+    if (synth.speaking) synth.cancel();
+
+    document.getElementById("chatScreen").classList.add("hidden");
+    document.getElementById("bookScreen").classList.remove("hidden");
+  }
+
+  // ══════════════════════════════════════
+  //  TTS — cargar voces en español
+  // ══════════════════════════════════════
+  function preloadVoices() {
+    voices = synth.getVoices();
+    if (!voices.length) {
+      synth.addEventListener("voiceschanged", () => { voices = synth.getVoices(); });
+    }
+  }
+
+  function getBestSpanishVoice() {
+    voices = synth.getVoices();
+    const priority = [
+      v => v.lang === "es-MX",
+      v => v.lang === "es-419",
+      v => v.lang.startsWith("es") && v.localService,
+      v => v.lang.startsWith("es"),
+    ];
+    for (const fn of priority) {
+      const found = voices.find(fn);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  function speak(text, onEnd) {
+    if (synth.speaking) synth.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    const voice = getBestSpanishVoice();
+    if (voice) utter.voice = voice;
+    utter.lang = "es-MX";
+    utter.rate = 0.88;
+    utter.pitch = 1.05;
+    utter.volume = 1;
+    utter.onend = onEnd || null;
+    utter.onerror = onEnd || null;
+    synth.speak(utter);
+  }
+
+  // ══════════════════════════════════════
+  //  Web Speech API — reconocimiento
+  // ══════════════════════════════════════
+  function toggleVoice() {
+    if (appState === "listening") {
+      stopListening();
+    } else if (appState === "speaking") {
+      synth.cancel();
+      setIdle();
+    } else if (appState === "idle") {
+      startListening();
+    }
+  }
+
+  function startListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showToast("Tu navegador no soporta el reconocimiento de voz. Usa Google Chrome.");
+      return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = "es-MX";
     recognition.continuous = false;
     recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-    function toggleListening() {
-      if (window.speechSynthesis.speaking) {
-        window.speechSynthesis.cancel();
+    setListening();
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript.trim();
+      if (transcript) {
+        addMessage(transcript, "user");
+        setThinking();
+        sendToAPI(transcript);
       }
-
-      if (isListening) {
-        recognition.stop();
-      } else {
-        recognition.start();
-      }
-    }
-
-    recognition.onstart = () => {
-      isListening = true;
-      micBtn.classList.add('recording');
-      statusText.innerText = "Escuchando... Te escucho con atención";
     };
-
+    recognition.onerror = (e) => {
+      const msgs = {
+        "no-speech": "No escuché nada. Vuelve a intentarlo.",
+        "audio-capture": "No puedo acceder al micrófono.",
+        "not-allowed": "Necesito permiso para usar el micrófono.",
+        "network": "Error de red. Verifica tu conexión.",
+      };
+      showToast(msgs[e.error] || "Hubo un error. Intenta de nuevo.");
+      setIdle();
+    };
     recognition.onend = () => {
-      isListening = false;
-      micBtn.classList.remove('recording');
+      if (appState === "listening") setIdle();
     };
 
-    recognition.onresult = async (event) => {
-      const userText = event.results[0][0].transcript;
-      statusText.innerText = "Pensando respuesta...";
-      
-      try {
-        const response = await fetch('/api/v1/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: userText })
-        });
-
-        const data = await response.json();
-        speakResponse(data.response);
-      } catch (error) {
-        statusText.innerText = "Tuvimos un problema. Intenta de nuevo.";
-        speakResponse("Disculpa, no pude escucharte bien. ¿Me lo repites?");
-      }
-    };
-
-    function speakResponse(text) {
-      // Limpiar formato especial o markdown para que la voz lo lea fluido
-      const cleanText = text.replace(/[*#$]/g, '');
-
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = 'es-MX';
-      utterance.rate = 0.9; // Hablar un poco más despacio para adultos mayores
-
-      utterance.onstart = () => {
-        micBtn.classList.add('speaking');
-        statusText.innerText = "HablaINEA respondiendo...";
-      };
-
-      utterance.onend = () => {
-        micBtn.classList.remove('speaking');
-        statusText.innerText = "Toca el micrófono para responder";
-      };
-
-      window.speechSynthesis.speak(utterance);
+    try {
+      recognition.start();
+    } catch(e) {
+      showToast("No se pudo iniciar el micrófono.");
+      setIdle();
     }
-  </script>
+  }
+
+  function stopListening() {
+    if (recognition) {
+      try { recognition.stop(); } catch(e) {}
+    }
+    setIdle();
+  }
+
+  // ══════════════════════════════════════
+  //  API: enviar pregunta al backend
+  // ══════════════════════════════════════
+  async function sendToAPI(message) {
+    try {
+      const body = { message };
+      if (selectedBook) body.selected_book = selectedBook;
+
+      const res = await fetch("/api/v1/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (data.response) {
+        addMessage(data.response, "ai");
+        setSpeaking();
+        speak(data.response, () => setIdle());
+      } else {
+        setIdle();
+      }
+    } catch (err) {
+      const errMsg = "Lo siento, no pude conectarme. Por favor inténtalo de nuevo.";
+      addMessage(errMsg, "ai");
+      setSpeaking();
+      speak(errMsg, () => setIdle());
+    }
+  }
+
+  // ══════════════════════════════════════
+  //  Mensajes en el log
+  // ══════════════════════════════════════
+  function addMessage(text, type) {
+    const log = document.getElementById("conversationLog");
+    // Quitar mensaje vacío
+    const empty = log.querySelector(".log-empty");
+    if (empty) empty.remove();
+
+    const div = document.createElement("div");
+    div.className = `msg msg-${type}`;
+    div.textContent = text;
+    log.appendChild(div);
+    div.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  // ══════════════════════════════════════
+  //  Estados del botón
+  // ══════════════════════════════════════
+  function setIdle() {
+    appState = "idle";
+    const btn = document.getElementById("voiceBtn");
+    btn.className = "";
+    document.getElementById("btnIcon").textContent = "🎙️";
+    document.getElementById("btnLabel").textContent = "Hablar";
+    document.getElementById("statusLabel").textContent = "Toca el botón para hablar";
+    document.getElementById("statusLabel").className = "status-label";
+    document.getElementById("waveContainer").classList.remove("active");
+  }
+
+  function setListening() {
+    appState = "listening";
+    const btn = document.getElementById("voiceBtn");
+    btn.className = "listening";
+    document.getElementById("btnIcon").textContent = "⏹️";
+    document.getElementById("btnLabel").textContent = "Detener";
+    document.getElementById("statusLabel").textContent = "Escuchando...";
+    document.getElementById("statusLabel").className = "status-label listening";
+    document.getElementById("waveContainer").classList.add("active");
+  }
+
+  function setThinking() {
+    appState = "thinking";
+    const btn = document.getElementById("voiceBtn");
+    btn.className = "thinking";
+    document.getElementById("btnIcon").textContent = "⏳";
+    document.getElementById("btnLabel").textContent = "Pensando";
+    document.getElementById("statusLabel").textContent = "Buscando en tus libros...";
+    document.getElementById("statusLabel").className = "status-label thinking";
+    document.getElementById("waveContainer").classList.remove("active");
+
+    // Agregar mensaje temporal
+    const log = document.getElementById("conversationLog");
+    const empty = log.querySelector(".log-empty");
+    if (empty) empty.remove();
+    const thinking = document.createElement("div");
+    thinking.className = "msg msg-thinking";
+    thinking.id = "thinkingMsg";
+    thinking.textContent = "Buscando en tus libros...";
+    log.appendChild(thinking);
+    thinking.scrollIntoView({ behavior: "smooth", block: "end" });
+  }
+
+  function setSpeaking() {
+    appState = "speaking";
+    const btn = document.getElementById("voiceBtn");
+    btn.className = "speaking";
+    document.getElementById("btnIcon").textContent = "🔊";
+    document.getElementById("btnLabel").textContent = "Leyendo";
+    document.getElementById("statusLabel").textContent = "Respondiendo... (toca para detener)";
+    document.getElementById("statusLabel").className = "status-label speaking";
+    document.getElementById("waveContainer").classList.add("active");
+    // Quitar msg de pensando
+    const thinking = document.getElementById("thinkingMsg");
+    if (thinking) thinking.remove();
+  }
+
+  // ══════════════════════════════════════
+  //  Toast de error
+  // ══════════════════════════════════════
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 3800);
+  }
+</script>
 </body>
 </html>
